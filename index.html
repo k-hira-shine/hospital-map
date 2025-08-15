@@ -358,7 +358,7 @@
             geocoder = new google.maps.Geocoder();
             setupEventListeners();
             
-            // 相模原医療機関データを自動読み込み
+            // 全データを自動読み込み
             loadSagamiharaMedicalFacilities();
         }
 
@@ -482,7 +482,69 @@
             return result;
         }
 
-        // CSV 処理
+        // 施設種別対応 CSV 処理
+        function processCSVWithType(csvText, fileName, facilityType, customColor) {
+            const data = parseCSV(csvText);
+            if (data.length < 2) {
+                addFailedItem(fileName, 0, 'ヘッダーまたはデータ行が不足');
+                updateStats();
+                return;
+            }
+
+            const headers = data[0].map(h => h.toLowerCase());
+            const nameIndex = headers.indexOf('name');
+            const addressIndex = headers.indexOf('address');
+            const latIndex = headers.indexOf('lat');
+            const lngIndex = headers.indexOf('lng');
+
+            if (nameIndex === -1 || addressIndex === -1) {
+                addFailedItem(fileName, 0, 'name または address 列が見つかりません');
+                updateStats();
+                return;
+            }
+
+            const layer = makeLayerWithType(fileName, facilityType, customColor);
+            const validRows = [];
+
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (row.length < Math.max(nameIndex, addressIndex) + 1) {
+                    addFailedItem(fileName, i + 1, '必要な列数が不足');
+                    continue;
+                }
+
+                const name = row[nameIndex]?.trim();
+                const address = row[addressIndex]?.trim();
+
+                if (!name || !address) {
+                    addFailedItem(fileName, i + 1, 'name または address が空');
+                    continue;
+                }
+
+                const lat = latIndex !== -1 ? parseFloat(row[latIndex]) : null;
+                const lng = lngIndex !== -1 ? parseFloat(row[lngIndex]) : null;
+
+                const duplicateKey = `${name}|${address}${lat && lng ? `|${lat},${lng}` : ''}`;
+                if (duplicateKeys.has(duplicateKey)) {
+                    addFailedItem(fileName, i + 1, '重複データ');
+                    continue;
+                }
+                duplicateKeys.add(duplicateKey);
+
+                validRows.push({
+                    name,
+                    address,
+                    lat: !isNaN(lat) ? lat : null,
+                    lng: !isNaN(lng) ? lng : null,
+                    rowNumber: i + 1
+                });
+            }
+
+            layer.stats.total = validRows.length;
+            addLayerFromRows(layer, validRows, fileName);
+        }
+
+        // CSV 処理（従来版）
         function processCSV(csvText, fileName) {
             const data = parseCSV(csvText);
             if (data.length < 2) {
@@ -544,7 +606,23 @@
             addLayerFromRows(layer, validRows, fileName);
         }
 
-        // レイヤー作成
+        // 施設種別対応レイヤー作成
+        function makeLayerWithType(name, facilityType, customColor) {
+            const layer = {
+                id: nextLayerId++,
+                name: name,
+                facilityType: facilityType,
+                color: customColor || colors[(layers.length) % colors.length],
+                markers: [],
+                rows: [],
+                visible: true,
+                stats: { total: 0, success: 0, failed: 0 }
+            };
+            layers.push(layer);
+            return layer;
+        }
+
+        // レイヤー作成（従来版）
         function makeLayer(name) {
             const layer = {
                 id: nextLayerId++,
@@ -982,18 +1060,67 @@
             indicator.classList.toggle('active', show);
         }
 
-        // 相模原医療機関データ自動読み込み
+        // 全データ自動読み込み
         function loadSagamiharaMedicalFacilities() {
-            fetch('./sagamihara-medical-facilities.csv')
-                .then(response => response.text())
-                .then(csvText => {
-                    processCSV(csvText, "相模原市自立支援医療機関");
-                })
-                .catch(error => {
-                    console.warn('相模原医療機関データの読み込みに失敗しました:', error);
-                    // エラー時はサンプルデータを読み込み
-                    loadSampleData();
-                });
+            const datasets = [
+                { 
+                    file: './sagamihara-medical-facilities.csv', 
+                    name: '相模原市自立支援医療機関（病院）', 
+                    type: 'hospital',
+                    color: '#f44336' 
+                },
+                { 
+                    file: './sagamihara-pharmacy.csv', 
+                    name: '相模原市自立支援医療機関（薬局）', 
+                    type: 'pharmacy',
+                    color: '#2196f3' 
+                },
+                { 
+                    file: './tokyo-hospitals.csv', 
+                    name: '東京都自立支援医療機関（病院）', 
+                    type: 'hospital',
+                    color: '#d32f2f' 
+                },
+                { 
+                    file: './tokyo-pharmacies.csv', 
+                    name: '東京都自立支援医療機関（薬局）', 
+                    type: 'pharmacy',
+                    color: '#1976d2' 
+                }
+            ];
+
+            let loadedCount = 0;
+            let errorCount = 0;
+
+            datasets.forEach(dataset => {
+                fetch(dataset.file)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(csvText => {
+                        processCSVWithType(csvText, dataset.name, dataset.type, dataset.color);
+                        loadedCount++;
+                        console.log(`${dataset.name} を読み込みました`);
+                    })
+                    .catch(error => {
+                        errorCount++;
+                        console.warn(`${dataset.name} の読み込みに失敗しました:`, error);
+                        addFailedItem(dataset.name, 0, `ファイル読み込み失敗: ${error.message}`);
+                        updateStats();
+                    })
+                    .finally(() => {
+                        if (loadedCount + errorCount === datasets.length) {
+                            console.log(`データ読み込み完了: 成功${loadedCount}件、失敗${errorCount}件`);
+                            if (loadedCount === 0) {
+                                // 全て失敗した場合はサンプルデータを読み込み
+                                loadSampleData();
+                            }
+                        }
+                    });
+            });
         }
 
         // サンプルデータ読み込み
