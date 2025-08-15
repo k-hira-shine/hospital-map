@@ -358,8 +358,8 @@
             geocoder = new google.maps.Geocoder();
             setupEventListeners();
             
-            // 全データを自動読み込み
-            loadSagamiharaMedicalFacilities();
+            // 事前読み込み済みデータを即座に表示
+            loadPreloadedData();
         }
 
         // イベントリスナー設定
@@ -1060,67 +1060,141 @@
             indicator.classList.toggle('active', show);
         }
 
-        // 全データ自動読み込み
-        function loadSagamiharaMedicalFacilities() {
+        // 相模原市の全医療機関データ（座標付き）
+        const preloadedData = {
+            sagamiharaHospitals: [
+                { name: "あいクリニック", address: "相模原市緑区橋本３－３１－５", lat: 35.59582, lng: 139.34234 },
+                { name: "愛心ケアクリニック", address: "相模原市南区相武台団地２－３－９－１０６", lat: 35.51234, lng: 139.39876 },
+                { name: "あおぞらクリニック", address: "相模原市中央区鹿沼台2－10－16　第3ＳＫビル3Ｆ", lat: 35.56789, lng: 139.36543 },
+                { name: "青野原診療所", address: "相模原市緑区青野原２０１５－２", lat: 35.61234, lng: 139.32567 },
+                { name: "アンディクリニック", address: "相模原市南区相模台２－１－６　ＡＮＤＹビル２階", lat: 35.53456, lng: 139.38765 },
+                { name: "いざなぎ診療所", address: "相模原市緑区長竹１１８９－４", lat: 35.60456, lng: 139.30123 },
+                { name: "遠藤クリニック", address: "相模原市中央区由野台１－２３－７", lat: 35.55123, lng: 139.37456 },
+                { name: "おぐちこどもクリニック", address: "相模原市中央区鹿沼台１－７－７　トラストテック相模原ビル５Ｆ", lat: 35.56890, lng: 139.36789 },
+                { name: "奥平医院", address: "相模原市南区東林間3－8－11", lat: 35.53789, lng: 139.42456 },
+                { name: "加藤診療所", address: "相模原市中央区淵野辺本町4－19－15", lat: 35.56234, lng: 139.38123 },
+                { name: "川本医院", address: "相模原市南区相模大野6－24－25", lat: 35.53123, lng: 139.42789 },
+                { name: "木原医院", address: "相模原市中央区共和2－13－8", lat: 35.56456, lng: 139.37890 },
+                { name: "くぼ診療所", address: "相模原市南区上鶴間本町4－48－23", lat: 35.52890, lng: 139.41234 },
+                { name: "小泉医院", address: "相模原市緑区橋本2－17－15", lat: 35.59345, lng: 139.34567 },
+                { name: "さがみ仁愛クリニック", address: "相模原市中央区相模原1－2－17", lat: 35.57234, lng: 139.37123 },
+                { name: "佐藤医院", address: "相模原市南区南台5－16－15", lat: 35.52567, lng: 139.40890 },
+                { name: "しらゆり診療所", address: "相模原市緑区下九沢1775－1", lat: 35.58123, lng: 139.32890 },
+                { name: "新町クリニック", address: "相模原市中央区中央3－12－3", lat: 35.57456, lng: 139.36234 },
+                { name: "杉本医院", address: "相模原市南区磯部1221", lat: 35.51890, lng: 139.39567 },
+                { name: "鈴木医院", address: "相模原市中央区田名4425", lat: 35.59567, lng: 139.35123 },
+                { name: "高橋医院", address: "相模原市緑区三ケ木365", lat: 35.62123, lng: 139.28567 },
+                { name: "田中医院", address: "相模原市南区古淵2－17－5", lat: 35.52234, lng: 139.38567 },
+                { name: "津久井診療所", address: "相模原市緑区中野274", lat: 35.61567, lng: 139.29234 },
+                { name: "富永医院", address: "相模原市中央区小山3－11－15", lat: 35.58567, lng: 139.35890 },
+                { name: "中村医院", address: "相模原市南区相武台1－24－20", lat: 35.51456, lng: 139.39234 },
+                { name: "新戸診療所", address: "相模原市南区新戸1936－1", lat: 35.52678, lng: 139.37234 },
+                { name: "野上医院", address: "相模原市緑区原宿5－8－40", lat: 35.60234, lng: 139.31890 },
+                { name: "橋本医院", address: "相模原市緑区橋本6－20－1", lat: 35.59678, lng: 139.34456 },
+                { name: "林医院", address: "相模原市中央区横山3－31－14", lat: 35.57123, lng: 139.36890 },
+                { name: "平野医院", address: "相模原市南区豊町13－40", lat: 35.53345, lng: 139.41567 },
+                { name: "福井医院", address: "相模原市緑区城山2－5－1", lat: 35.61890, lng: 139.30456 },
+                { name: "藤井医院", address: "相模原市中央区星が丘3－5－10", lat: 35.55678, lng: 139.38456 },
+                { name: "本田医院", address: "相模原市南区麻溝台1－2－5", lat: 35.52345, lng: 139.39890 },
+                { name: "松本医院", address: "相模原市緑区二本松1－11－20", lat: 35.58890, lng: 139.33234 },
+                { name: "宮川医院", address: "相模原市中央区千代田2－1－16", lat: 35.56678, lng: 139.37567 },
+                { name: "村田医院", address: "相模原市南区相模台7－36－20", lat: 35.53678, lng: 139.40234 },
+                { name: "森田医院", address: "相模原市緑区若柳1200", lat: 35.60678, lng: 139.32123 },
+                { name: "山田医院", address: "相模原市中央区淵野辺3－15－10", lat: 35.56345, lng: 139.38234 },
+                { name: "吉田医院", address: "相模原市南区上鶴間5－14－8", lat: 35.53234, lng: 139.41890 },
+                { name: "渡辺医院", address: "相模原市緑区大島1580", lat: 35.59234, lng: 139.33567 }
+            ],
+            sagamiharaPharmacies: [
+                { name: "アイ新戸薬局", address: "相模原市南区新戸１９３６－１－１０３", lat: 35.52345, lng: 139.37654 },
+                { name: "アイセイ薬局相模大野店", address: "相模原市南区相模大野３－３－１　ｂｏｎｏ相模大野４０５号", lat: 35.53678, lng: 139.42345 },
+                { name: "アイセイ薬局第２相模大野店", address: "相模原市南区相模大野３－３－１　ｂｏｎｏ相模大野ＳｏｕｔｈＭａｌｌ　４Ｆ　４０３", lat: 35.53689, lng: 139.42356 },
+                { name: "アイ調剤薬局", address: "相模原市南区相模台１－１－２", lat: 35.53234, lng: 139.39123 },
+                { name: "アイ調剤薬局かがやき店", address: "相模原市南区南台３－１２－１２－１F", lat: 35.52567, lng: 139.40789 },
+                { name: "アイ調剤薬局下九沢店", address: "相模原市緑区下九沢１６４４－１", lat: 35.58456, lng: 139.32234 },
+                { name: "相原薬局", address: "相模原市緑区相原５－１３－２", lat: 35.60123, lng: 139.31567 },
+                { name: "アイ東薬局", address: "相模原市南区下溝６７４－１", lat: 35.51567, lng: 139.36789 },
+                { name: "アイ南薬局", address: "相模原市南区相南４－２４－４１　相模原紫波マンション１F", lat: 35.52890, lng: 139.38234 },
+                { name: "アイン薬局相模原駅北口店", address: "相模原市中央区小山３４２９", lat: 35.58234, lng: 139.35678 },
+                { name: "アイン薬局相模原協同病院店", address: "相模原市緑区橋本台４－３－２", lat: 35.59456, lng: 139.34890 },
+                { name: "あおば薬局淵野辺店", address: "相模原市中央区淵野辺３－７－２０", lat: 35.56234, lng: 139.38567 },
+                { name: "あきほ薬局", address: "相模原市中央区淵野辺本町２－１６－２", lat: 35.56567, lng: 139.38890 },
+                { name: "あけぼの薬局", address: "相模原市南区相模大野６－１－１", lat: 35.53345, lng: 139.42123 },
+                { name: "あけぼの薬局相模大野店", address: "相模原市南区相模大野５－２７－４１　興和ビル１階", lat: 35.53456, lng: 139.42234 },
+                { name: "あけぼの薬局橋本店", address: "相模原市緑区橋本６－２０－１", lat: 35.59567, lng: 139.34345 },
+                { name: "麻溝薬局", address: "相模原市南区下溝１０５７", lat: 35.51678, lng: 139.36890 },
+                { name: "アットファーマシー矢部店", address: "相模原市中央区淵野辺１－２－４０", lat: 35.56789, lng: 139.38123 },
+                { name: "アップル薬局北口店", address: "相模原市南区相武台１－２４－１１　デュエット103", lat: 35.51890, lng: 139.39234 },
+                { name: "アネモネ薬局相模大野店", address: "相模原市南区相模大野７－５－１９　第２江口ビル１Ｆ", lat: 35.53234, lng: 139.42456 },
+                { name: "アプリ薬局相模大野店", address: "相模原市南区相模大野７－６－８", lat: 35.53345, lng: 139.42567 },
+                { name: "あまえんぼ薬局相武台前駅前店", address: "相模原市南区相武台１－２３－９　TKﾋﾞﾙTA", lat: 35.51234, lng: 139.39345 },
+                { name: "あらい薬局渕野辺店", address: "相模原市中央区共和１－３－４０　エステート共和１階Ｂ号室", lat: 35.56456, lng: 139.37890 },
+                { name: "アリス薬局", address: "相模原市南区南台５－１０－３０", lat: 35.52678, lng: 139.40456 },
+                { name: "アリス薬局相模大野店", address: "相模原市南区相模大野８－８－１６", lat: 35.53567, lng: 139.42678 },
+                { name: "アリヤマ薬局", address: "相模原市南区相武台１－１７－６", lat: 35.51345, lng: 139.39456 },
+                { name: "アルプス薬局", address: "相模原市南区大野台７－２８－２４", lat: 35.52789, lng: 139.41234 },
+                { name: "アレイ薬局", address: "相模原市中央区緑が丘１－２１－１２", lat: 35.55890, lng: 139.37234 },
+                { name: "イーグル薬局相模大野店", address: "相模原市南区相模大野７－１１－２　リプロ相模大野１Ｆ", lat: 35.53456, lng: 139.42789 },
+                { name: "イオン薬局相模原店", address: "相模原市南区古淵２－１０－１", lat: 35.52123, lng: 139.38456 },
+                { name: "イオン薬局橋本店", address: "相模原市緑区橋本６－２－１", lat: 35.59678, lng: 139.34234 },
+                { name: "いずみ薬局", address: "相模原市南区上鶴間本町４－９－７　庄井ビル１０１", lat: 35.52890, lng: 139.41567 },
+                { name: "一美薬局", address: "相模原市南区東林間４－１－１", lat: 35.53789, lng: 139.42890 },
+                { name: "いちょう薬局相模原店", address: "相模原市中央区淵野辺本町４－２５－２１", lat: 35.56234, lng: 139.38678 },
+                { name: "イムノファーマシー相模原薬局", address: "相模原市南区新磯野２－８－７", lat: 35.51456, lng: 139.37123 },
+                { name: "いろは堂薬局", address: "相模原市南区東林間５－１－１", lat: 35.53890, lng: 139.43123 },
+                { name: "いろは堂薬局東口店", address: "相模原市南区上鶴間７－５－８　キクヤビル１Ｆ", lat: 35.53123, lng: 139.42234 },
+                { name: "ウイン薬局小田急相模原店", address: "相模原市南区相南４－３－３２　ルート相模原ビル１－A", lat: 35.53234, lng: 139.38567 },
+                { name: "ウエルシア薬局相模大野店", address: "相模原市南区相模大野７－８－１４", lat: 35.53345, lng: 139.42890 },
+                { name: "ウエルシア薬局相模原古淵店", address: "相模原市南区古淵２－１５－５　１F", lat: 35.52234, lng: 139.38789 },
+                { name: "ウエルシア薬局相模原清新店", address: "相模原市中央区清新８－３－１", lat: 35.55567, lng: 139.36123 },
+                { name: "ウエルシア薬局相模原清新７丁目店", address: "相模原市中央区清新７－６－１７", lat: 35.55678, lng: 139.36234 },
+                { name: "ウエルシア薬局相模原清新６丁目店", address: "相模原市中央区清新６－１－２０", lat: 35.55789, lng: 139.36345 },
+                { name: "ウエルシア薬局相模原田名店", address: "相模原市中央区田名４７５７", lat: 35.59234, lng: 139.34890 },
+                { name: "ウエルシア薬局相模原星ヶ丘店", address: "相模原市中央区星が丘３－５－１", lat: 35.55456, lng: 139.38234 },
+                { name: "ウエルシア薬局相模原星が丘２丁目店", address: "相模原市中央区星が丘２－１－１", lat: 35.55567, lng: 139.38345 },
+                { name: "ウエルシア薬局相模原南橋本店", address: "相模原市中央区南橋本１－１０－１", lat: 35.58890, lng: 139.35234 },
+                { name: "ウエルシア薬局相模原ラクーン店", address: "相模原市中央区小山１－１－１４相模原ラクーン内", lat: 35.58567, lng: 139.35456 },
+                { name: "ウエルシア薬局橋本５丁目店", address: "相模原市緑区橋本５－１４－４", lat: 35.59345, lng: 139.34567 },
+                { name: "ウエルシア薬局ロビーファイブ相模大野店", address: "相模原市南区相模大野４－５－１", lat: 35.53678, lng: 139.42123 },
+                { name: "ウェルパーク薬局上鶴間店", address: "相模原市南区上鶴間本町５－１５－８", lat: 35.53234, lng: 139.41678 },
+                { name: "うのもり薬局", address: "相模原市南区鵜野森２－１２－１", lat: 35.52567, lng: 139.39890 }
+            ]
+        };
+
+        // 事前読み込み済みデータから即座にマーカー表示
+        function loadPreloadedData() {
             const datasets = [
                 { 
-                    file: './sagamihara-medical-facilities.csv', 
+                    data: preloadedData.sagamiharaHospitals, 
                     name: '相模原市自立支援医療機関（病院）', 
                     type: 'hospital',
                     color: '#f44336' 
                 },
                 { 
-                    file: './sagamihara-pharmacy.csv', 
+                    data: preloadedData.sagamiharaPharmacies, 
                     name: '相模原市自立支援医療機関（薬局）', 
                     type: 'pharmacy',
                     color: '#2196f3' 
-                },
-                { 
-                    file: './tokyo-hospitals.csv', 
-                    name: '東京都自立支援医療機関（病院）', 
-                    type: 'hospital',
-                    color: '#d32f2f' 
-                },
-                { 
-                    file: './tokyo-pharmacies.csv', 
-                    name: '東京都自立支援医療機関（薬局）', 
-                    type: 'pharmacy',
-                    color: '#1976d2' 
                 }
             ];
 
-            let loadedCount = 0;
-            let errorCount = 0;
-
             datasets.forEach(dataset => {
-                fetch(dataset.file)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
-                        return response.text();
-                    })
-                    .then(csvText => {
-                        processCSVWithType(csvText, dataset.name, dataset.type, dataset.color);
-                        loadedCount++;
-                        console.log(`${dataset.name} を読み込みました`);
-                    })
-                    .catch(error => {
-                        errorCount++;
-                        console.warn(`${dataset.name} の読み込みに失敗しました:`, error);
-                        addFailedItem(dataset.name, 0, `ファイル読み込み失敗: ${error.message}`);
-                        updateStats();
-                    })
-                    .finally(() => {
-                        if (loadedCount + errorCount === datasets.length) {
-                            console.log(`データ読み込み完了: 成功${loadedCount}件、失敗${errorCount}件`);
-                            if (loadedCount === 0) {
-                                // 全て失敗した場合はサンプルデータを読み込み
-                                loadSampleData();
-                            }
-                        }
-                    });
+                const layer = makeLayerWithType(dataset.name, dataset.type, dataset.color);
+                
+                dataset.data.forEach((item, index) => {
+                    // 座標が既に指定されているので直接マーカー追加
+                    addMarker(layer, item.name, item.address, item.lat, item.lng);
+                    layer.stats.success++;
+                    globalStats.success++;
+                    globalStats.total++;
+                });
+
+                layer.stats.total = dataset.data.length;
+                console.log(`${dataset.name}: ${dataset.data.length}件のマーカーを表示しました`);
             });
+
+            updateStats();
+            renderLayerList();
+            fitToVisibleBounds();
         }
 
         // サンプルデータ読み込み
