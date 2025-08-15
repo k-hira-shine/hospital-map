@@ -357,6 +357,9 @@
 
             geocoder = new google.maps.Geocoder();
             setupEventListeners();
+            
+            // 相模原医療機関データを自動読み込み
+            loadSagamiharaMedicalFacilities();
         }
 
         // イベントリスナー設定
@@ -977,6 +980,20 @@
         function showProcessingIndicator(show) {
             const indicator = document.getElementById('processingIndicator');
             indicator.classList.toggle('active', show);
+        }
+
+        // 相模原医療機関データ自動読み込み
+        function loadSagamiharaMedicalFacilities() {
+            fetch('./sagamihara-medical-facilities.csv')
+                .then(response => response.text())
+                .then(csvText => {
+                    processCSV(csvText, "相模原市自立支援医療機関");
+                })
+                .catch(error => {
+                    console.warn('相模原医療機関データの読み込みに失敗しました:', error);
+                    // エラー時はサンプルデータを読み込み
+                    loadSampleData();
+                });
         }
 
         // サンプルデータ読み込み
