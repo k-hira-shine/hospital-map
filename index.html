@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV レイヤーマップ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f5f5f5;
+        }
+
+        .control-panel {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .upload-section {
+            margin-bottom: 20px;
+        }
+
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: #2196F3;
+            background: #e3f2fd;
+        }
+
+        .upload-area:focus-within {
+            outline: 2px solid #2196F3;
+            outline-offset: 2px;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .upload-button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 14px;
+        }
+
+        .upload-button:hover {
+            background: #1976D2;
+        }
+
+        .upload-button:focus {
+            outline: 2px solid #2196F3;
+            outline-offset: 2px;
+        }
+
+        .sample-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+
+        .sample-button:hover {
+            background: #45a049;
+        }
+
+        .hint-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .layers-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .layer-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            user-select: none;
+        }
+
+        .layer-item:hover {
+            background: #f5f5f5;
+        }
+
+        .layer-item:focus-within {
+            outline: 2px solid #2196F3;
+            outline-offset: -2px;
+        }
+
+        .layer-checkbox {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .layer-checkbox:focus {
+            outline: 2px solid #2196F3;
+        }
+
+        .color-chip {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .layer-info {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .layer-name {
+            font-weight: 500;
+        }
+
+        .layer-stats {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .delete-button {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .delete-button:hover {
+            background: #d32f2f;
+        }
+
+        .delete-button:focus {
+            outline: 2px solid #f44336;
+            outline-offset: 2px;
+        }
+
+        .stats-section {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .global-stats {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .processing-indicator {
+            display: none;
+            color: #2196F3;
+            font-size: 14px;
+        }
+
+        .processing-indicator.active {
+            display: inline;
+        }
+
+        .error-list {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            font-size: 12px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .error-list:empty {
+            display: none;
+        }
+
+        .clear-button {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .clear-button:hover {
+            background: #f57c00;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            min-height: 400px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                padding: 15px;
+            }
+
+            .stats-section {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .layer-item {
+                padding: 12px;
+            }
+
+            .upload-area {
+                padding: 15px;
+            }
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <!-- CSV アップロード セクション -->
+        <div class="upload-section">
+            <div class="section-title">CSV ファイル追加</div>
+            <div class="upload-area" id="uploadArea" tabindex="0" role="button" aria-label="CSVファイルをドラッグ&ドロップまたはクリックして選択">
+                <input type="file" id="fileInput" class="file-input" accept=".csv" multiple aria-label="CSVファイルを選択">
+                <div>📁 CSVファイルをドラッグ&ドロップまたはクリック</div>
+                <button class="upload-button" type="button" aria-label="ファイル選択ダイアログを開く">ファイルを選択</button>
+                <button class="sample-button" id="sampleButton" type="button" aria-label="サンプルデータを読み込み">サンプル読み込み</button>
+                <div class="hint-text">
+                    対応列: name, address, lat, lng（lat/lng 指定時はジオコーディングスキップ）<br>
+                    文字コード: UTF-8推奨、ヘッダー行必須
+                </div>
+            </div>
+        </div>
+
+        <!-- レイヤー管理 セクション -->
+        <div class="layers-section">
+            <div class="section-title">レイヤー管理</div>
+            <div class="layer-list" id="layerList" role="list" aria-label="インポートされたレイヤー一覧">
+                <!-- レイヤーアイテムがここに動的追加される -->
+            </div>
+        </div>
+
+        <!-- 統計・エラー表示 セクション -->
+        <div class="stats-section">
+            <div class="global-stats" id="globalStats">
+                総行数: 0 | 成功: 0 | 失敗: 0
+            </div>
+            <div class="processing-indicator" id="processingIndicator" aria-live="polite">
+                処理中...
+            </div>
+            <button class="clear-button" id="clearAllButton" type="button" aria-label="全レイヤーを削除">全削除</button>
+        </div>
+        <div class="error-list" id="errorList" role="alert" aria-live="polite"></div>
+    </div>
+
+    <!-- マップ表示エリア -->
+    <div class="map-container">
+        <div id="map" role="application" aria-label="Google マップ"></div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let map;
+        let geocoder;
+        const layers = [];
+        const colors = [
+            '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
+            '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50',
+            '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'
+        ];
+        let nextLayerId = 1;
+        let globalStats = { total: 0, success: 0, failed: 0 };
+        const geocodeQueue = [];
+        let isProcessingQueue = false;
+        const failedItems = [];
+        let currentRetryDelay = 200;
+        const duplicateKeys = new Set();
+
+        // 初期化
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 35.6804, lng: 139.7690 },
+                zoom: 11,
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: true
+            });
+
+            geocoder = new google.maps.Geocoder();
+            setupEventListeners();
+        }
+
+        // イベントリスナー設定
+        function setupEventListeners() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const sampleButton = document.getElementById('sampleButton');
+            const clearAllButton = document.getElementById('clearAllButton');
+
+            // ファイルアップロード
+            uploadArea.addEventListener('click', (e) => {
+                if (e.target !== fileInput) {
+                    fileInput.click();
+                }
+            });
+
+            uploadArea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInput.click();
+                }
+            });
+
+            // ドラッグ&ドロップ
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files).filter(file => 
+                    file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')
+                );
+                if (files.length > 0) {
+                    handleFiles(files);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFiles(Array.from(e.target.files));
+                }
+            });
+
+            // サンプルボタン
+            sampleButton.addEventListener('click', loadSampleData);
+
+            // 全削除ボタン
+            clearAllButton.addEventListener('click', clearAllLayers);
+
+            // エラーハンドリング
+            window.addEventListener('error', (e) => {
+                console.error('Global error:', e.error);
+                addFailedItem('システム', 0, `未捕捉エラー: ${e.message}`);
+                updateStats();
+            });
+        }
+
+        // ファイル処理
+        function handleFiles(files) {
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const csvText = e.target.result;
+                        const layerName = file.name.replace(/\.[^/.]+$/, "");
+                        processCSV(csvText, layerName);
+                    } catch (error) {
+                        console.warn('ファイル読み込みエラー:', error);
+                        addFailedItem(file.name, 0, `読み込み失敗: ${error.message}`);
+                        updateStats();
+                    }
+                };
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        // CSV パース（簡易実装）
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r?\n/);
+            const result = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const fields = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    const nextChar = line[j + 1];
+                    
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            current += '"';
+                            j++; // 次の文字をスキップ
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        fields.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                fields.push(current.trim());
+                result.push(fields);
+            }
+            
+            return result;
+        }
+
+        // CSV 処理
+        function processCSV(csvText, fileName) {
+            const data = parseCSV(csvText);
+            if (data.length < 2) {
+                addFailedItem(fileName, 0, 'ヘッダーまたはデータ行が不足');
+                updateStats();
+                return;
+            }
+
+            const headers = data[0].map(h => h.toLowerCase());
+            const nameIndex = headers.indexOf('name');
+            const addressIndex = headers.indexOf('address');
+            const latIndex = headers.indexOf('lat');
+            const lngIndex = headers.indexOf('lng');
+
+            if (nameIndex === -1 || addressIndex === -1) {
+                addFailedItem(fileName, 0, 'name または address 列が見つかりません');
+                updateStats();
+                return;
+            }
+
+            const layer = makeLayer(fileName);
+            const validRows = [];
+
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (row.length < Math.max(nameIndex, addressIndex) + 1) {
+                    addFailedItem(fileName, i + 1, '必要な列数が不足');
+                    continue;
+                }
+
+                const name = row[nameIndex]?.trim();
+                const address = row[addressIndex]?.trim();
+
+                if (!name || !address) {
+                    addFailedItem(fileName, i + 1, 'name または address が空');
+                    continue;
+                }
+
+                const lat = latIndex !== -1 ? parseFloat(row[latIndex]) : null;
+                const lng = lngIndex !== -1 ? parseFloat(row[lngIndex]) : null;
+
+                const duplicateKey = `${name}|${address}${lat && lng ? `|${lat},${lng}` : ''}`;
+                if (duplicateKeys.has(duplicateKey)) {
+                    addFailedItem(fileName, i + 1, '重複データ');
+                    continue;
+                }
+                duplicateKeys.add(duplicateKey);
+
+                validRows.push({
+                    name,
+                    address,
+                    lat: !isNaN(lat) ? lat : null,
+                    lng: !isNaN(lng) ? lng : null,
+                    rowNumber: i + 1
+                });
+            }
+
+            layer.stats.total = validRows.length;
+            addLayerFromRows(layer, validRows, fileName);
+        }
+
+        // レイヤー作成
+        function makeLayer(name) {
+            const layer = {
+                id: nextLayerId++,
+                name: name,
+                color: colors[(layers.length) % colors.length],
+                markers: [],
+                rows: [],
+                visible: true,
+                stats: { total: 0, success: 0, failed: 0 }
+            };
+            layers.push(layer);
+            return layer;
+        }
+
+        // レイヤーにマーカー追加
+        function addLayerFromRows(layer, rows, fileName) {
+            if (rows.length === 0) {
+                updateStats();
+                renderLayerList();
+                return;
+            }
+
+            showProcessingIndicator(true);
+            
+            rows.forEach(row => {
+                layer.rows.push(row);
+                globalStats.total++;
+                
+                if (row.lat && row.lng) {
+                    // 座標が指定されている場合は直接マーカー追加
+                    addMarker(layer, row.name, row.address, row.lat, row.lng);
+                    layer.stats.success++;
+                    globalStats.success++;
+                } else {
+                    // ジオコーディングが必要
+                    enqueueGeocode(layer, row, fileName);
+                }
+            });
+
+            updateStats();
+            renderLayerList();
+            
+            if (geocodeQueue.length > 0) {
+                processQueue();
+            } else {
+                showProcessingIndicator(false);
+                fitToVisibleBounds();
+            }
+        }
+
+        // ジオコーディング キュー追加
+        function enqueueGeocode(layer, row, fileName) {
+            geocodeQueue.push({
+                layer: layer,
+                row: row,
+                fileName: fileName,
+                retries: 0
+            });
+        }
+
+        // ジオコーディング キュー処理
+        function processQueue() {
+            if (isProcessingQueue || geocodeQueue.length === 0) {
+                return;
+            }
+
+            isProcessingQueue = true;
+            processNextInQueue();
+        }
+
+        function processNextInQueue() {
+            if (geocodeQueue.length === 0) {
+                isProcessingQueue = false;
+                showProcessingIndicator(false);
+                fitToVisibleBounds();
+                return;
+            }
+
+            const item = geocodeQueue.shift();
+            const address = item.row.address;
+
+            geocoder.geocode({ address: address }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const location = results[0].geometry.location;
+                    addMarker(item.layer, item.row.name, item.row.address, location.lat(), location.lng());
+                    item.layer.stats.success++;
+                    globalStats.success++;
+                    updateStats();
+                } else if (status === 'OVER_QUERY_LIMIT' || status === 'REQUEST_DENIED') {
+                    // レート制限エラーの処理
+                    if (item.retries < 3) {
+                        item.retries++;
+                        geocodeQueue.unshift(item); // キューの先頭に戻す
+                        currentRetryDelay = Math.min(currentRetryDelay * 2, 3200); // 指数バックオフ
+                        setTimeout(processNextInQueue, currentRetryDelay);
+                        return;
+                    } else {
+                        addFailedItem(item.fileName, item.row.rowNumber, `ジオコーディング失敗: ${status}`);
+                        item.layer.stats.failed++;
+                        globalStats.failed++;
+                        updateStats();
+                    }
+                } else {
+                    addFailedItem(item.fileName, item.row.rowNumber, `ジオコーディング失敗: ${status}`);
+                    item.layer.stats.failed++;
+                    globalStats.failed++;
+                    updateStats();
+                }
+
+                // 次のアイテムを処理（基本間隔）
+                setTimeout(processNextInQueue, 200);
+            });
+        }
+
+        // マーカー追加
+        function addMarker(layer, name, address, lat, lng) {
+            const marker = new google.maps.Marker({
+                position: { lat: lat, lng: lng },
+                map: layer.visible ? map : null,
+                title: name,
+                icon: makeMarkerIcon(layer.color)
+            });
+
+            const infoWindow = new google.maps.InfoWindow({
+                content: `<div><strong>${name}</strong><br>${address}</div>`
+            });
+
+            marker.addListener('click', () => {
+                infoWindow.open(map, marker);
+            });
+
+            layer.markers.push(marker);
+        }
+
+        // カスタムマーカーアイコン作成
+        function makeMarkerIcon(color) {
+            const svg = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="8" fill="${color}" stroke="white" stroke-width="2"/>
+                </svg>
+            `;
+            return {
+                url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+                scaledSize: new google.maps.Size(24, 24),
+                anchor: new google.maps.Point(12, 12)
+            };
+        }
+
+        // レイヤーリスト表示更新
+        function renderLayerList() {
+            const layerList = document.getElementById('layerList');
+            layerList.innerHTML = '';
+
+            layers.forEach(layer => {
+                const layerItem = document.createElement('div');
+                layerItem.className = 'layer-item';
+                layerItem.setAttribute('role', 'listitem');
+                layerItem.setAttribute('tabindex', '0');
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = layer.visible;
+                checkbox.className = 'layer-checkbox';
+                checkbox.setAttribute('aria-label', `${layer.name}の表示切り替え`);
+
+                const colorChip = document.createElement('div');
+                colorChip.className = 'color-chip';
+                colorChip.style.backgroundColor = layer.color;
+
+                const layerInfo = document.createElement('div');
+                layerInfo.className = 'layer-info';
+                layerInfo.innerHTML = `
+                    <div class="layer-name">${layer.name}</div>
+                    <div class="layer-stats">成功: ${layer.stats.success} / 失敗: ${layer.stats.failed}</div>
+                `;
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-button';
+                deleteButton.textContent = '削除';
+                deleteButton.setAttribute('aria-label', `${layer.name}を削除`);
+
+                layerItem.appendChild(checkbox);
+                layerItem.appendChild(colorChip);
+                layerItem.appendChild(layerInfo);
+                layerItem.appendChild(deleteButton);
+
+                // イベントリスナー
+                attachLayerRowHandlers(layerItem, layer, checkbox, deleteButton);
+
+                layerList.appendChild(layerItem);
+            });
+        }
+
+        // レイヤー行のイベントハンドラー
+        function attachLayerRowHandlers(layerItem, layer, checkbox, deleteButton) {
+            let longPressTimer;
+            let isIsolated = false;
+
+            // チェックボックス
+            checkbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                toggleLayerVisibility(layer.id);
+            });
+
+            // 削除ボタン
+            deleteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeLayer(layer.id);
+            });
+
+            // 行クリック
+            layerItem.addEventListener('click', (e) => {
+                if (e.target === checkbox || e.target === deleteButton) return;
+                toggleLayerVisibility(layer.id);
+            });
+
+            // キーボード操作
+            layerItem.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleLayerVisibility(layer.id);
+                }
+            });
+
+            // ダブルクリック
+            layerItem.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                isolateLayer(layer.id);
+            });
+
+            // 長押し（マウス）
+            layerItem.addEventListener('mousedown', (e) => {
+                if (e.target === checkbox || e.target === deleteButton) return;
+                longPressTimer = setTimeout(() => {
+                    showAllLayers();
+                }, 600);
+            });
+
+            layerItem.addEventListener('mouseup', () => {
+                clearTimeout(longPressTimer);
+            });
+
+            layerItem.addEventListener('mouseleave', () => {
+                clearTimeout(longPressTimer);
+            });
+
+            // 長押し（タッチ）
+            layerItem.addEventListener('touchstart', (e) => {
+                if (e.target === checkbox || e.target === deleteButton) return;
+                longPressTimer = setTimeout(() => {
+                    showAllLayers();
+                }, 600);
+            });
+
+            layerItem.addEventListener('touchend', () => {
+                clearTimeout(longPressTimer);
+            });
+        }
+
+        // レイヤー表示切り替え
+        function toggleLayerVisibility(layerId) {
+            const layer = layers.find(l => l.id === layerId);
+            if (!layer) return;
+
+            layer.visible = !layer.visible;
+            layer.markers.forEach(marker => {
+                marker.setMap(layer.visible ? map : null);
+            });
+
+            renderLayerList();
+            fitToVisibleBounds();
+        }
+
+        // レイヤー単独表示
+        function isolateLayer(layerId) {
+            const targetLayer = layers.find(l => l.id === layerId);
+            if (!targetLayer) return;
+
+            // スナップショット確認
+            const hasSnapshot = layers.some(l => l.originalVisibilitySnapshot !== undefined);
+
+            if (hasSnapshot) {
+                // スナップショットから復元
+                layers.forEach(layer => {
+                    if (layer.originalVisibilitySnapshot !== undefined) {
+                        layer.visible = layer.originalVisibilitySnapshot;
+                        delete layer.originalVisibilitySnapshot;
+                    }
+                });
+            } else {
+                // スナップショット作成して単独表示
+                layers.forEach(layer => {
+                    layer.originalVisibilitySnapshot = layer.visible;
+                    layer.visible = (layer.id === layerId);
+                });
+            }
+
+            // マーカー表示更新
+            layers.forEach(layer => {
+                layer.markers.forEach(marker => {
+                    marker.setMap(layer.visible ? map : null);
+                });
+            });
+
+            renderLayerList();
+            fitToVisibleBounds();
+        }
+
+        // 全レイヤー表示
+        function showAllLayers() {
+            layers.forEach(layer => {
+                layer.visible = true;
+                delete layer.originalVisibilitySnapshot;
+                layer.markers.forEach(marker => {
+                    marker.setMap(map);
+                });
+            });
+
+            renderLayerList();
+            fitToVisibleBounds();
+        }
+
+        // レイヤー削除
+        function removeLayer(layerId) {
+            const layerIndex = layers.findIndex(l => l.id === layerId);
+            if (layerIndex === -1) return;
+
+            const layer = layers[layerIndex];
+            
+            // マーカー削除
+            layer.markers.forEach(marker => {
+                marker.setMap(null);
+            });
+
+            // 重複キーからこのレイヤーのアイテムを削除
+            layer.rows.forEach(row => {
+                const duplicateKey = `${row.name}|${row.address}${row.lat && row.lng ? `|${row.lat},${row.lng}` : ''}`;
+                duplicateKeys.delete(duplicateKey);
+            });
+
+            // 統計更新
+            globalStats.total -= layer.stats.total;
+            globalStats.success -= layer.stats.success;
+            globalStats.failed -= layer.stats.failed;
+
+            // レイヤー配列から削除
+            layers.splice(layerIndex, 1);
+
+            updateStats();
+            renderLayerList();
+            fitToVisibleBounds();
+        }
+
+        // 全レイヤー削除
+        function clearAllLayers() {
+            if (layers.length === 0) return;
+
+            if (!confirm('すべてのレイヤーを削除しますか？')) return;
+
+            layers.forEach(layer => {
+                layer.markers.forEach(marker => {
+                    marker.setMap(null);
+                });
+            });
+
+            layers.length = 0;
+            duplicateKeys.clear();
+            globalStats = { total: 0, success: 0, failed: 0 };
+            failedItems.length = 0;
+
+            updateStats();
+            renderLayerList();
+        }
+
+        // 表示範囲調整
+        function fitToVisibleBounds() {
+            const visibleLayers = layers.filter(l => l.visible);
+            if (visibleLayers.length === 0) return;
+
+            const bounds = new google.maps.LatLngBounds();
+            let hasMarkers = false;
+
+            visibleLayers.forEach(layer => {
+                layer.markers.forEach(marker => {
+                    bounds.extend(marker.getPosition());
+                    hasMarkers = true;
+                });
+            });
+
+            if (hasMarkers) {
+                map.fitBounds(bounds);
+                if (map.getZoom() > 15) {
+                    map.setZoom(15);
+                }
+            }
+        }
+
+        // 統計更新
+        function updateStats() {
+            const globalStatsElement = document.getElementById('globalStats');
+            globalStatsElement.textContent = 
+                `総行数: ${globalStats.total} | 成功: ${globalStats.success} | 失敗: ${globalStats.failed}`;
+
+            updateErrorList();
+        }
+
+        // エラーリスト更新
+        function updateErrorList() {
+            const errorList = document.getElementById('errorList');
+            if (failedItems.length === 0) {
+                errorList.innerHTML = '';
+                return;
+            }
+
+            const displayItems = failedItems.slice(0, 5);
+            errorList.innerHTML = `
+                <strong>エラー例 (先頭${displayItems.length}件):</strong><br>
+                ${displayItems.map(item => 
+                    `${item.fileName}:${item.rowNumber} - ${item.reason}`
+                ).join('<br>')}
+                ${failedItems.length > 5 ? `<br>...他 ${failedItems.length - 5} 件` : ''}
+            `;
+        }
+
+        // 失敗項目追加
+        function addFailedItem(fileName, rowNumber, reason) {
+            failedItems.push({ fileName, rowNumber, reason });
+            globalStats.failed++;
+            console.warn(`Failed item: ${fileName}:${rowNumber} - ${reason}`);
+        }
+
+        // 処理中インジケーター
+        function showProcessingIndicator(show) {
+            const indicator = document.getElementById('processingIndicator');
+            indicator.classList.toggle('active', show);
+        }
+
+        // サンプルデータ読み込み
+        function loadSampleData() {
+            const sampleData = [
+                { name: "本社", address: "東京都千代田区千代田1-1" },
+                { name: "倉庫", address: "神奈川県川崎市麻生区王禅寺東" }
+            ];
+
+            const layer = makeLayer("サンプルデータ");
+            const rows = sampleData.map((item, index) => ({
+                name: item.name,
+                address: item.address,
+                lat: null,
+                lng: null,
+                rowNumber: index + 1
+            }));
+
+            layer.stats.total = rows.length;
+            addLayerFromRows(layer, rows, "サンプルデータ");
+        }
+    </script>
+
+    <!-- Google Maps API 読み込み -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCk362YNjFjHr1Z8af2VcRdLH51SKhVSbY&language=ja&callback=initMap"></script>
+</body>
+</html>
+
+<!--
+GitHub Pages デプロイ手順:
+1. このファイルをリポジトリ直下に index.html として配置
+2. GitHub リポジトリの Settings → Pages → Source で "Deploy from a branch" を選択
+3. Branch で "main" (またはメインブランチ) を選択
+4. 数十秒後に公開 URL が発行されます
+5. Google Maps API キーを YOUR_API_KEY から実際のキーに差し替えてください
+6. API キーには HTTP リファラ制限（GitHub Pages の公開 URL）を設定することを推奨します
+7. URL を共有して利用してください（検索エンジンを避けたい場合は head に <meta name="robots" content="noindex"> を追加可能）
+-->
